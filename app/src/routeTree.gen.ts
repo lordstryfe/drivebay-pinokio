@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiDownloadRouteImport } from './routes/api/download'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDownloadRoute = ApiDownloadRouteImport.update({
+  id: '/api/download',
+  path: '/api/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/download': typeof ApiDownloadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/download': typeof ApiDownloadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/download': typeof ApiDownloadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/settings' | '/api/auth/$'
+  fullPaths: '/' | '/login' | '/settings' | '/api/auth/$' | '/api/download'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/settings' | '/api/auth/$'
-  id: '__root__' | '/' | '/login' | '/settings' | '/api/auth/$'
+  to: '/' | '/login' | '/settings' | '/api/auth/$' | '/api/download'
+  id: '__root__' | '/' | '/login' | '/settings' | '/api/auth/$' | '/api/download'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +76,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiDownloadRoute: typeof ApiDownloadRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +109,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/download': {
+      id: '/api/download'
+      path: '/api/download'
+      fullPath: '/api/download'
+      preLoaderRoute: typeof ApiDownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiDownloadRoute: ApiDownloadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

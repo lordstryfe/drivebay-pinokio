@@ -1,4 +1,6 @@
-Drivebay for Pinokio — 3.14
+Drivebay for Pinokio - 3.15
 
-Search covers subfolders; hidden folders follow the eye toggle.
+Large-file streaming download (/api/download).
+Sort by name/type/size/date + group by type.
+Upload ceiling raised to 512 MB.
 Full notes: README Changelog on GitHub.

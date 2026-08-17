@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  ArrowDownAZ,
   ArrowUp,
+  ArrowUpDown,
   ChevronRight,
+  Clock3,
   Columns2,
   Download,
   Eye,
@@ -21,6 +24,7 @@ import {
   Settings,
   Trash2,
   Upload,
+  Layers,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -40,7 +44,7 @@ import {
   uploadFile,
 } from "@/lib/files/api.functions";
 import { defaultStartPath, formatBytes, formatWhen, splitPath } from "@/lib/files/format";
-import type { DirListing, Drive, FsEntry, PreviewPayload, SearchHit } from "@/lib/files/types";
+import type { DirListing, Drive, FileCategory, FsEntry, PreviewPayload, SearchHit } from "@/lib/files/types";
 import { FileGlyph } from "@/components/file-icon";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +63,83 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 
 type ViewMode = "list" | "grid";
+type SortMode = "name" | "type" | "size" | "date";
+
+const CATEGORY_ORDER: FileCategory[] = [
+  "folder",
+  "image",
+  "video",
+  "audio",
+  "document",
+  "code",
+  "text",
+  "archive",
+  "model",
+  "print",
+  "other",
+];
+
+const CATEGORY_LABEL: Record<FileCategory, string> = {
+  folder: "Folders",
+  image: "Images",
+  video: "Videos",
+  audio: "Audio",
+  document: "Documents",
+  code: "Code",
+  text: "Text",
+  archive: "Archives",
+  model: "Models",
+  print: "3D print",
+  other: "Other",
+};
+
+function sortEntries(entries: FsEntry[], mode: SortMode): FsEntry[] {
+  const copy = [...entries];
+  copy.sort((a, b) => {
+    // Folders first unless sorting purely by size/date among mixed
+    if (mode === "name" || mode === "type") {
+      if (a.kind === "dir" && b.kind !== "dir") return -1;
+      if (a.kind !== "dir" && b.kind === "dir") return 1;
+    }
+    switch (mode) {
+      case "type": {
+        const ca = CATEGORY_ORDER.indexOf(a.category);
+        const cb = CATEGORY_ORDER.indexOf(b.category);
+        if (ca !== cb) return ca - cb;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      }
+      case "size": {
+        const sa = a.size ?? -1;
+        const sb = b.size ?? -1;
+        if (sa !== sb) return sb - sa;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      }
+      case "date": {
+        const ma = a.mtime ?? 0;
+        const mb = b.mtime ?? 0;
+        if (ma !== mb) return mb - ma;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      }
+      case "name":
+      default:
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    }
+  });
+  return copy;
+}
+
+function groupEntries(entries: FsEntry[]): { category: FileCategory; items: FsEntry[] }[] {
+  const map = new Map<FileCategory, FsEntry[]>();
+  for (const e of entries) {
+    const list = map.get(e.category) ?? [];
+    list.push(e);
+    map.set(e.category, list);
+  }
+  return CATEGORY_ORDER.filter((c) => map.has(c)).map((category) => ({
+    category,
+    items: map.get(category) ?? [],
+  }));
+}
 
 function errMessage(err: unknown): string {
   if (err instanceof Error) return err.message === "Unauthorized" ? "Session expired" : err.message;
@@ -79,6 +160,8 @@ export function FileBrowserApp() {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<ViewMode>("list");
+  const [sortMode, setSortMode] = useState<SortMode>("name");
+  const [groupByType, setGroupByType] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewPayload | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -101,12 +184,18 @@ export function FileBrowserApp() {
   const crumbs = useMemo(() => (listing ? splitPath(listing.path) : []), [listing]);
 
   const visible = useMemo(() => {
-    if (searchHits) return searchHits;
-    const entries = listing?.entries ?? [];
-    const q = query.trim().toLowerCase();
-    if (!q) return entries;
-    return entries.filter((e) => e.name.toLowerCase().includes(q));
-  }, [listing, query, searchHits]);
+    let entries: FsEntry[] = searchHits ?? listing?.entries ?? [];
+    if (!searchHits) {
+      const q = query.trim().toLowerCase();
+      if (q) entries = entries.filter((e) => e.name.toLowerCase().includes(q));
+    }
+    return sortEntries(entries, sortMode);
+  }, [listing, query, searchHits, sortMode]);
+
+  const groupedVisible = useMemo(
+    () => (groupByType ? groupEntries(visible) : null),
+    [groupByType, visible],
+  );
 
   const runSearch = useCallback(async (raw = query) => {
     const q = raw.trim();
@@ -276,14 +365,22 @@ export function FileBrowserApp() {
     if (!selectedEntry || selectedEntry.kind === "dir") return;
     setBusy(true);
     try {
-      const file = await readFileBase64({ data: { path: selectedEntry.path } });
-      const bin = Uint8Array.from(atob(file.contentBase64), (c) => c.charCodeAt(0));
-      const url = URL.createObjectURL(new Blob([bin], { type: file.mime }));
+      // Stream large files via /api/download (no base64 size ceiling).
+      const url = `/api/download?path=${encodeURIComponent(selectedEntry.path)}`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Download failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = file.name;
+      a.href = objectUrl;
+      a.download = selectedEntry.name;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
     } catch (err) {
       toast.error(errMessage(err));
     } finally {
@@ -298,8 +395,8 @@ export function FileBrowserApp() {
     setBusy(true);
     try {
       for (const file of list) {
-        if (file.size > 32 * 1024 * 1024) {
-          toast.error(`${file.name} is larger than 32 MB`);
+        if (file.size > 512 * 1024 * 1024) {
+          toast.error(`${file.name} is larger than 512 MB`);
           continue;
         }
         const buf = new Uint8Array(await file.arrayBuffer());
@@ -539,6 +636,27 @@ export function FileBrowserApp() {
           <IconBtn label="Grid" onClick={() => setView("grid")}>
             <LayoutGrid className={view === "grid" ? "text-fg" : undefined} />
           </IconBtn>
+          <IconBtn
+            label="Sort by name"
+            onClick={() => setSortMode("name")}
+          >
+            <ArrowDownAZ className={sortMode === "name" ? "text-fg" : undefined} />
+          </IconBtn>
+          <IconBtn label="Sort by type" onClick={() => setSortMode("type")}>
+            <ArrowUpDown className={sortMode === "type" ? "text-fg" : undefined} />
+          </IconBtn>
+          <IconBtn label="Sort by size" onClick={() => setSortMode("size")}>
+            <HardDrive className={sortMode === "size" ? "text-fg" : undefined} />
+          </IconBtn>
+          <IconBtn label="Sort by date" onClick={() => setSortMode("date")}>
+            <Clock3 className={sortMode === "date" ? "text-fg" : undefined} />
+          </IconBtn>
+          <IconBtn
+            label={groupByType ? "Ungroup" : "Group by type"}
+            onClick={() => setGroupByType((v) => !v)}
+          >
+            <Layers className={groupByType ? "text-fg" : undefined} />
+          </IconBtn>
         </div>
         <div className="hidden items-center gap-2 pl-1 md:flex">
           <span className="max-w-28 truncate text-xs text-fg-muted">{ownerName}</span>
@@ -645,6 +763,40 @@ export function FileBrowserApp() {
                   <Loader2 className="size-4 animate-spin" />
                   Searching this folder…
                 </span>
+              </div>
+            ) : groupedVisible ? (
+              <div className="space-y-4 p-2 md:p-3">
+                {groupedVisible.map((group) => (
+                  <section key={group.category} className="min-w-0">
+                    <h3 className="sticky top-0 z-[1] bg-bg/95 px-1 py-1.5 text-[11px] font-medium tracking-wide text-fg-subtle uppercase backdrop-blur">
+                      {CATEGORY_LABEL[group.category]}
+                      <span className="ml-2 font-mono text-fg-muted normal-case">
+                        {group.items.length}
+                      </span>
+                    </h3>
+                    {view === "list" ? (
+                      <FileTable
+                        entries={group.items}
+                        selected={selected}
+                        showFolder={Boolean(searchHits)}
+                        onSelect={(e) => void inspect(e)}
+                        onOpen={(e) => void activate(e)}
+                      />
+                    ) : (
+                      <FileGrid
+                        entries={group.items}
+                        selected={selected}
+                        onSelect={(e) => void inspect(e)}
+                        onOpen={(e) => void activate(e)}
+                      />
+                    )}
+                  </section>
+                ))}
+                {groupedVisible.length === 0 ? (
+                  <div className="grid min-h-48 place-items-center text-sm text-fg-muted">
+                    {searchHits ? "No matches" : "This folder is empty"}
+                  </div>
+                ) : null}
               </div>
             ) : view === "list" ? (
               <FileTable

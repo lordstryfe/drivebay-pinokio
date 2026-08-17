@@ -2,6 +2,12 @@
 
 All user-facing Drivebay versions. Newest first.
 
+## 3.15
+- Large files download via streaming `/api/download` (no more 24 MB base64 ceiling).
+- Sort toolbar: name, type, size, date.
+- Group by type (folders, images, videos, archives, etc.).
+- Upload size ceiling raised to 512 MB (still base64-bound).
+
 ## 3.14
 - Search walks subfolders.
 - Hidden folders (`.` names) are included when the eye is on.

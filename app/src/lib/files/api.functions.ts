@@ -86,8 +86,9 @@ export const uploadFile = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const fs = await import("./fs.server");
     const buf = Buffer.from(data.contentBase64, "base64");
-    if (buf.length > 32 * 1024 * 1024) {
-      throw new Error("File is larger than 32 MB");
+    // Upload still goes through base64 server-fn (memory-bound). 512 MB soft ceiling.
+    if (buf.length > 512 * 1024 * 1024) {
+      throw new Error("File is larger than 512 MB");
     }
     const path = await fs.writeUpload(data.parent, data.name, buf);
     return { path, size: buf.length };
@@ -102,7 +103,10 @@ export const readFileBase64 = createServerFn({ method: "POST" })
     const resolved = fs.resolveSafePath(data.path);
     const st = await fsp.stat(resolved);
     if (!st.isFile()) throw new Error("Not a file");
-    if (st.size > 24 * 1024 * 1024) throw new Error("File is too large to preview");
+    // Inline base64 is only for small previews (images). Large downloads use /api/download.
+    if (st.size > 32 * 1024 * 1024) {
+      throw new Error("File is too large to preview — use Download");
+    }
     const bytes = await fsp.readFile(resolved);
     return {
       name: resolved.split(/[\\/]/).pop() ?? "file",
