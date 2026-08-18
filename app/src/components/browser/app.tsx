@@ -36,6 +36,7 @@ import {
   createFolder,
   deleteEntry,
   getPreview,
+  getSettings,
   listDrives,
   listEntries,
   readFileBase64,
@@ -179,6 +180,13 @@ export function FileBrowserApp() {
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
+  const [serverLock, setServerLock] = useState<{
+    allowDelete: boolean;
+    allowRename: boolean;
+    allowCreateFolder: boolean;
+    allowUpload: boolean;
+    maxUploadMb: number;
+  } | null>(null);
 
   const selectedEntry = listing?.entries.find((e) => e.path === selected) ?? null;
   const crumbs = useMemo(() => (listing ? splitPath(listing.path) : []), [listing]);
@@ -253,6 +261,52 @@ export function FileBrowserApp() {
     const next = await listDrives();
     setDrives(next);
     return next;
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    getSettings()
+      .then((s) => {
+        if (!alive) return;
+        if (s && typeof s === "object" && "serverLock" in s && s.serverLock) {
+          const lock = s.serverLock as {
+            allowDelete: boolean;
+            allowRename: boolean;
+            allowCreateFolder: boolean;
+            allowUpload: boolean;
+            maxUploadMb: number;
+          };
+          setServerLock({
+            allowDelete: lock.allowDelete !== false,
+            allowRename: lock.allowRename !== false,
+            allowCreateFolder: lock.allowCreateFolder !== false,
+            allowUpload: lock.allowUpload !== false,
+            maxUploadMb: typeof lock.maxUploadMb === "number" ? lock.maxUploadMb : 512,
+          });
+        } else {
+          setServerLock({
+            allowDelete: true,
+            allowRename: true,
+            allowCreateFolder: true,
+            allowUpload: true,
+            maxUploadMb: 512,
+          });
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setServerLock({
+            allowDelete: true,
+            allowRename: true,
+            allowCreateFolder: true,
+            allowUpload: true,
+            maxUploadMb: 512,
+          });
+        }
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const openPath = useCallback(
@@ -390,13 +444,19 @@ export function FileBrowserApp() {
 
   async function handleUpload(files: FileList | File[]) {
     if (!listing) return;
+    if (serverLock && !serverLock.allowUpload) {
+      toast.error("Upload is locked on the server (edit data/server-lock.json on the PC).");
+      return;
+    }
     const list = Array.from(files);
     if (list.length === 0) return;
+    const maxMb = serverLock?.maxUploadMb ?? 512;
+    const maxBytes = maxMb * 1024 * 1024;
     setBusy(true);
     try {
       for (const file of list) {
-        if (file.size > 512 * 1024 * 1024) {
-          toast.error(`${file.name} is larger than 512 MB`);
+        if (file.size > maxBytes) {
+          toast.error(`${file.name} is larger than ${maxMb} MB`);
           continue;
         }
         const buf = new Uint8Array(await file.arrayBuffer());
@@ -421,6 +481,10 @@ export function FileBrowserApp() {
 
   async function handleCreateFolder() {
     if (!listing || !folderName.trim()) return;
+    if (serverLock && !serverLock.allowCreateFolder) {
+      toast.error("Create folder is locked on the server.");
+      return;
+    }
     setBusy(true);
     try {
       await createFolder({ data: { parent: listing.path, name: folderName.trim() } });
@@ -436,6 +500,10 @@ export function FileBrowserApp() {
 
   async function handleRename() {
     if (!selectedEntry || !renameValue.trim()) return;
+    if (serverLock && !serverLock.allowRename) {
+      toast.error("Rename is locked on the server.");
+      return;
+    }
     setBusy(true);
     try {
       const next = await renameEntry({ data: { path: selectedEntry.path, name: renameValue.trim() } });
@@ -450,6 +518,10 @@ export function FileBrowserApp() {
 
   async function handleDelete() {
     if (!selectedEntry) return;
+    if (serverLock && !serverLock.allowDelete) {
+      toast.error("Delete is locked on the server.");
+      return;
+    }
     setBusy(true);
     try {
       await deleteEntry({ data: { path: selectedEntry.path } });
@@ -685,15 +757,27 @@ export function FileBrowserApp() {
           onDrop={(e) => {
             e.preventDefault();
             setDragging(false);
-            if (e.dataTransfer.files.length) void handleUpload(e.dataTransfer.files);
+            if (e.dataTransfer.files.length && serverLock?.allowUpload !== false) {
+              void handleUpload(e.dataTransfer.files);
+            }
           }}
         >
           <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 py-1.5">
-            <Button variant="ghost" size="sm" onClick={() => setFolderOpen(true)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={serverLock?.allowCreateFolder === false}
+              onClick={() => setFolderOpen(true)}
+            >
               <FolderPlus className="size-3.5" />
               New folder
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={serverLock?.allowUpload === false}
+              onClick={() => fileInputRef.current?.click()}
+            >
               <Upload className="size-3.5" />
               Upload
             </Button>
@@ -710,7 +794,7 @@ export function FileBrowserApp() {
             <Button
               variant="ghost"
               size="sm"
-              disabled={!selectedEntry}
+              disabled={!selectedEntry || serverLock?.allowRename === false}
               onClick={() => {
                 if (!selectedEntry) return;
                 setRenameValue(selectedEntry.name);
@@ -723,7 +807,7 @@ export function FileBrowserApp() {
             <Button
               variant="ghost"
               size="sm"
-              disabled={!selectedEntry}
+              disabled={!selectedEntry || serverLock?.allowDelete === false}
               className="text-danger hover:text-danger"
               onClick={() => setDeleteOpen(true)}
             >

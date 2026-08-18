@@ -2,6 +2,12 @@
 
 All user-facing Drivebay versions. Newest first.
 
+## 3.16
+- Server-lock policy (`data/server-lock.json` on host only): delete/rename/mkdir/upload/port/max upload/allowed roots.
+- Settings shows live lock status (read-only from web/APK).
+- File APIs enforce lock server-side; browser toolbar disables locked actions.
+- Download route honors `allowedRoots`.
+
 ## 3.15
 - Large files download via streaming `/api/download` (no more 24 MB base64 ceiling).
 - Sort toolbar: name, type, size, date.

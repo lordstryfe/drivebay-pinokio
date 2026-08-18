@@ -20,6 +20,18 @@ function SettingsPage() {
   const [style, setStyle] = useState<"random" | "static">("static");
   const [port, setPort] = useState("42013");
   const [dataDir, setDataDir] = useState("");
+  const [serverLock, setServerLock] = useState<{
+    allowPortChangeFromUi: boolean;
+    allowDelete: boolean;
+    allowRename: boolean;
+    allowCreateFolder: boolean;
+    allowUpload: boolean;
+    maxUploadMb: number;
+    allowedRoots: string[];
+    note: string;
+    lockedOnServer: true;
+    lockFile: string;
+  } | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [savingPort, setSavingPort] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -35,6 +47,10 @@ function SettingsPage() {
         setStyle(s.style);
         setPort(String(s.port));
         setDataDir(s.dataDir);
+        // serverLock is host-only policy; never writable from this UI
+        if (s && typeof s === "object" && "serverLock" in s) {
+          setServerLock((s as { serverLock: NonNullable<typeof serverLock> }).serverLock);
+        }
         setLoaded(true);
       })
       .catch(() => {
@@ -58,6 +74,10 @@ function SettingsPage() {
 
   async function onSavePort(e: React.FormEvent) {
     e.preventDefault();
+    if (serverLock && !serverLock.allowPortChangeFromUi) {
+      toast.error("Port changes are locked on the server (edit data/server-lock.json on the PC).");
+      return;
+    }
     const n = Number(port);
     setSavingPort(true);
     try {
@@ -181,6 +201,36 @@ function SettingsPage() {
         </section>
 
         <section className="space-y-3">
+          <p className="font-mono text-[10px] tracking-[0.16em] text-fg-subtle uppercase">Server lock (host only)</p>
+          <div className="space-y-2 rounded-md border border-border bg-bg-elevated p-4 text-sm">
+            <p className="text-xs text-fg-muted">
+              These flags are enforced on the PC. Web and APK clients can read them but cannot change them.
+              Edit <span className="font-mono">data/server-lock.json</span> on the host, then restart Drivebay.
+            </p>
+            {serverLock ? (
+              <ul className="space-y-1 font-mono text-[11px] text-fg-muted">
+                <li>port from UI: {serverLock.allowPortChangeFromUi ? "allowed" : "LOCKED"}</li>
+                <li>delete: {serverLock.allowDelete ? "allowed" : "LOCKED"}</li>
+                <li>rename: {serverLock.allowRename ? "allowed" : "LOCKED"}</li>
+                <li>mkdir: {serverLock.allowCreateFolder ? "allowed" : "LOCKED"}</li>
+                <li>upload: {serverLock.allowUpload ? "allowed" : "LOCKED"}</li>
+                <li>max upload: {serverLock.maxUploadMb} MB</li>
+                <li>
+                  roots:{" "}
+                  {serverLock.allowedRoots.length
+                    ? serverLock.allowedRoots.join(", ")
+                    : "(all drives)"}
+                </li>
+                {serverLock.note ? <li className="text-fg">note: {serverLock.note}</li> : null}
+                <li className="break-all text-fg-subtle">{serverLock.lockFile}</li>
+              </ul>
+            ) : (
+              <p className="text-xs text-fg-subtle">Loading lock policy…</p>
+            )}
+          </div>
+        </section>
+
+        <section className="space-y-3">
           <p className="font-mono text-[10px] tracking-[0.16em] text-fg-subtle uppercase">Port</p>
           <form className="space-y-3 rounded-md border border-border bg-bg-elevated p-4" onSubmit={onSavePort}>
             <div className="grid grid-cols-2 gap-2">
@@ -224,9 +274,12 @@ function SettingsPage() {
             <p className="text-xs text-fg-muted">
               After saving, stop Drivebay in Pinokio and click Start. Forward a static port on your router.
             </p>
-            <Button type="submit" disabled={!loaded || savingPort}>
+            <Button
+              type="submit"
+              disabled={!loaded || savingPort || serverLock?.allowPortChangeFromUi === false}
+            >
               {savingPort ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-              Save port
+              {serverLock?.allowPortChangeFromUi === false ? "Port locked on server" : "Save port"}
             </Button>
           </form>
         </section>

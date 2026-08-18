@@ -1,6 +1,5 @@
-Drivebay for Pinokio - 3.15
+Drivebay for Pinokio - 3.16
 
-Large-file streaming download (/api/download).
-Sort by name/type/size/date + group by type.
-Upload ceiling raised to 512 MB.
+Server-lock policy (host-only data/server-lock.json).
+Settings shows lock status; APIs enforce delete/rename/upload/port/roots.
 Full notes: README Changelog on GitHub.
