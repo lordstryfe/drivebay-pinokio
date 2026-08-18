@@ -2,6 +2,11 @@
 
 All user-facing Drivebay versions. Newest first.
 
+## 3.17
+- Settings **Drive access**: scan all drives on load; toggle any drive off; saved in `data/drive-access.json`.
+- Disabled drives hidden from sidebar and blocked for browse/download/upload/search.
+- Android APK: downloads go to phone **Downloads** via DownloadManager (with session cookies).
+
 ## 3.16
 - Server-lock policy (`data/server-lock.json` on host only): delete/rename/mkdir/upload/port/max upload/allowed roots.
 - Settings shows live lock status (read-only from web/APK).

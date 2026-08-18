@@ -6,7 +6,7 @@ import { authClient, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { emailToUsername } from "@/lib/files/identity";
-import { getSettings, savePortSettings } from "@/lib/files/api.functions";
+import { getSettings, saveDriveAccess, savePortSettings } from "@/lib/files/api.functions";
 import { APP_VERSION, FEATURE_REQUEST_URL } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,8 +32,13 @@ function SettingsPage() {
     lockedOnServer: true;
     lockFile: string;
   } | null>(null);
+  const [driveRows, setDriveRows] = useState<
+    { id: string; path: string; label: string; kind: string; enabled: boolean }[]
+  >([]);
+  const [driveAccessFile, setDriveAccessFile] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [savingPort, setSavingPort] = useState(false);
+  const [savingDrives, setSavingDrives] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -50,6 +55,14 @@ function SettingsPage() {
         // serverLock is host-only policy; never writable from this UI
         if (s && typeof s === "object" && "serverLock" in s) {
           setServerLock((s as { serverLock: NonNullable<typeof serverLock> }).serverLock);
+        }
+        if (s && typeof s === "object" && "driveAccess" in s && s.driveAccess) {
+          const da = s.driveAccess as {
+            drives: { id: string; path: string; label: string; kind: string; enabled: boolean }[];
+            accessFile: string;
+          };
+          setDriveRows(da.drives ?? []);
+          setDriveAccessFile(da.accessFile ?? "");
         }
         setLoaded(true);
       })
@@ -95,6 +108,32 @@ function SettingsPage() {
       toast.error(err instanceof Error ? err.message : "Could not save port");
     } finally {
       setSavingPort(false);
+    }
+  }
+
+  function toggleDrive(id: string) {
+    setDriveRows((rows) =>
+      rows.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)),
+    );
+  }
+
+  async function onSaveDrives(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingDrives(true);
+    try {
+      const disabledIds = driveRows.filter((r) => !r.enabled).map((r) => r.id);
+      const next = await saveDriveAccess({ data: { disabledIds } });
+      setDriveRows(next.drives ?? []);
+      setDriveAccessFile(next.accessFile ?? "");
+      toast.success(
+        disabledIds.length
+          ? `Saved — ${disabledIds.length} drive${disabledIds.length === 1 ? "" : "s"} off`
+          : "Saved — all scanned drives on",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save drive access");
+    } finally {
+      setSavingDrives(false);
     }
   }
 
@@ -196,6 +235,48 @@ function SettingsPage() {
             <Button type="submit" disabled={savingPass}>
               {savingPass ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
               Update password
+            </Button>
+          </form>
+        </section>
+
+        <section className="space-y-3">
+          <p className="font-mono text-[10px] tracking-[0.16em] text-fg-subtle uppercase">Drive access</p>
+          <form className="space-y-3 rounded-md border border-border bg-bg-elevated p-4" onSubmit={onSaveDrives}>
+            <p className="text-xs text-fg-muted">
+              On Start / Settings load, Drivebay scans every drive on this PC. Turn any drive off to hide it from the
+              sidebar and block browse/download/upload there. Saved in data so Update keeps your choices.
+            </p>
+            {driveRows.length ? (
+              <ul className="space-y-2">
+                {driveRows.map((d) => (
+                  <li
+                    key={d.id}
+                    className="flex items-start gap-3 rounded-sm border border-border px-3 py-2"
+                  >
+                    <input
+                      id={`drive-${d.id}`}
+                      type="checkbox"
+                      className="mt-1 size-4 accent-fg"
+                      checked={d.enabled}
+                      onChange={() => toggleDrive(d.id)}
+                    />
+                    <label htmlFor={`drive-${d.id}`} className="min-w-0 flex-1 cursor-pointer">
+                      <span className="block text-sm text-fg">{d.label}</span>
+                      <span className="block break-all font-mono text-[11px] text-fg-subtle">{d.path}</span>
+                      <span className="block text-[11px] text-fg-muted">{d.kind}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-fg-subtle">{loaded ? "No drives found on scan." : "Scanning drives…"}</p>
+            )}
+            {driveAccessFile ? (
+              <p className="break-all font-mono text-[11px] text-fg-subtle">{driveAccessFile}</p>
+            ) : null}
+            <Button type="submit" disabled={!loaded || savingDrives || !driveRows.length}>
+              {savingDrives ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+              Save drive access
             </Button>
           </form>
         </section>

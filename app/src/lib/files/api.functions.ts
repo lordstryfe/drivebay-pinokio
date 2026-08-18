@@ -13,12 +13,15 @@ export const hasOwner = createServerFn({ method: "GET" }).handler(async () => {
 export const listDrives = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async (): Promise<Drive[]> => {
-    const { listDrives: list } = await import("./fs.server");
+    const access = await import("./drive-access.server");
     const lock = await import("./server-lock.server");
-    const drives = await list();
+    // Live scan every call; apply Settings drive toggles, then optional host lock roots.
+    let drives = await access.listEnabledDrives();
     const policy = lock.readServerLock();
-    if (!policy.allowedRoots.length) return drives;
-    return drives.filter((d) => lock.isPathAllowedByRoots(d.path, policy.allowedRoots));
+    if (policy.allowedRoots.length) {
+      drives = drives.filter((d) => lock.isPathAllowedByRoots(d.path, policy.allowedRoots));
+    }
+    return drives;
   });
 
 export const listEntries = createServerFn({ method: "POST" })
@@ -27,8 +30,10 @@ export const listEntries = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<DirListing> => {
     const fs = await import("./fs.server");
     const lock = await import("./server-lock.server");
+    const access = await import("./drive-access.server");
     const resolved = fs.resolveSafePath(data.path);
     lock.assertPathAllowed(resolved);
+    await access.assertPathAllowedByDriveAccess(resolved);
     return fs.listEntries(data.path, data.showHidden);
   });
 
@@ -38,8 +43,10 @@ export const getPreview = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<PreviewPayload> => {
     const fs = await import("./fs.server");
     const lock = await import("./server-lock.server");
+    const access = await import("./drive-access.server");
     const resolved = fs.resolveSafePath(data.path);
     lock.assertPathAllowed(resolved);
+    await access.assertPathAllowedByDriveAccess(resolved);
     const ext = fs.extOf(resolved);
     if (fs.isImageExt(ext)) {
       return { kind: "image", mime: fs.mimeOf(ext) };
@@ -62,8 +69,11 @@ export const createFolder = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const fs = await import("./fs.server");
     const lock = await import("./server-lock.server");
+    const access = await import("./drive-access.server");
     lock.assertPolicy("allowCreateFolder");
-    lock.assertPathAllowed(fs.resolveSafePath(data.parent));
+    const parentResolved = fs.resolveSafePath(data.parent);
+    lock.assertPathAllowed(parentResolved);
+    await access.assertPathAllowedByDriveAccess(parentResolved);
     const path = await fs.createFolder(data.parent, data.name);
     return { path };
   });
@@ -74,8 +84,11 @@ export const renameEntry = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const fs = await import("./fs.server");
     const lock = await import("./server-lock.server");
+    const access = await import("./drive-access.server");
     lock.assertPolicy("allowRename");
-    lock.assertPathAllowed(fs.resolveSafePath(data.path));
+    const resolved = fs.resolveSafePath(data.path);
+    lock.assertPathAllowed(resolved);
+    await access.assertPathAllowedByDriveAccess(resolved);
     const path = await fs.renameEntry(data.path, data.name);
     return { path };
   });
@@ -86,8 +99,11 @@ export const deleteEntry = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const fs = await import("./fs.server");
     const lock = await import("./server-lock.server");
+    const access = await import("./drive-access.server");
     lock.assertPolicy("allowDelete");
-    lock.assertPathAllowed(fs.resolveSafePath(data.path));
+    const resolved = fs.resolveSafePath(data.path);
+    lock.assertPathAllowed(resolved);
+    await access.assertPathAllowedByDriveAccess(resolved);
     await fs.removeEntry(data.path);
     return { ok: true as const };
   });
@@ -104,8 +120,11 @@ export const uploadFile = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const fs = await import("./fs.server");
     const lock = await import("./server-lock.server");
+    const access = await import("./drive-access.server");
     lock.assertPolicy("allowUpload");
-    lock.assertPathAllowed(fs.resolveSafePath(data.parent));
+    const parentResolved = fs.resolveSafePath(data.parent);
+    lock.assertPathAllowed(parentResolved);
+    await access.assertPathAllowedByDriveAccess(parentResolved);
     const buf = Buffer.from(data.contentBase64, "base64");
     lock.assertUploadSize(buf.length);
     const path = await fs.writeUpload(data.parent, data.name, buf);
@@ -119,8 +138,10 @@ export const readFileBase64 = createServerFn({ method: "POST" })
     const { promises: fsp } = await import("node:fs");
     const fs = await import("./fs.server");
     const lock = await import("./server-lock.server");
+    const access = await import("./drive-access.server");
     const resolved = fs.resolveSafePath(data.path);
     lock.assertPathAllowed(resolved);
+    await access.assertPathAllowedByDriveAccess(resolved);
     const st = await fsp.stat(resolved);
     if (!st.isFile()) throw new Error("Not a file");
     // Inline base64 is only for small previews (images). Large downloads use /api/download.
@@ -148,7 +169,10 @@ export const searchFiles = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<SearchResult> => {
     const fs = await import("./fs.server");
     const lock = await import("./server-lock.server");
-    lock.assertPathAllowed(fs.resolveSafePath(data.root));
+    const access = await import("./drive-access.server");
+    const resolved = fs.resolveSafePath(data.root);
+    lock.assertPathAllowed(resolved);
+    await access.assertPathAllowedByDriveAccess(resolved);
     return fs.searchEntries(data.root, data.query, data.showHidden);
   });
 
@@ -157,10 +181,27 @@ export const getSettings = createServerFn({ method: "GET" })
   .handler(async () => {
     const settings = await import("./settings.server");
     const lock = await import("./server-lock.server");
+    const access = await import("./drive-access.server");
+    const driveAccess = await access.listDrivesWithAccess();
     return {
       ...settings.readAppSettings(),
       serverLock: lock.toPublicServerLock(),
+      driveAccess,
     };
+  });
+
+export const saveDriveAccess = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      /** Drive ids that should be OFF. Omitted ids stay on. */
+      disabledIds: z.array(z.string().min(1).max(64)).max(64),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const access = await import("./drive-access.server");
+    access.writeDriveAccess(data.disabledIds);
+    return access.listDrivesWithAccess();
   });
 
 export const savePortSettings = createServerFn({ method: "POST" })

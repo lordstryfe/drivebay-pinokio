@@ -34,7 +34,9 @@ export const Route = createFileRoute("/api/download")({
 
           const resolved = fsUtil.resolveSafePath(filePath);
           const lock = await import("@/lib/files/server-lock.server");
+          const access = await import("@/lib/files/drive-access.server");
           lock.assertPathAllowed(resolved);
+          await access.assertPathAllowedByDriveAccess(resolved);
           const st = await stat(resolved);
           if (!st.isFile()) {
             return new Response("Not a file", { status: 400 });

@@ -1,5 +1,5 @@
-Drivebay for Pinokio - 3.16
+Drivebay for Pinokio - 3.17
 
-Server-lock policy (host-only data/server-lock.json).
-Settings shows lock status; APIs enforce delete/rename/upload/port/roots.
+Drive access toggles in Settings (scan all drives; turn any off).
+Android APK saves downloads to phone Downloads folder.
 Full notes: README Changelog on GitHub.
