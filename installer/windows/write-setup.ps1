@@ -37,4 +37,8 @@ $pending = @{ username = $userName; password = $password } | ConvertTo-Json -Com
 [System.IO.File]::WriteAllText((Join-Path $homeDir "config.json"), $config)
 [System.IO.File]::WriteAllText((Join-Path $homeDir "drivebay.port"), "$port")
 [System.IO.File]::WriteAllText((Join-Path $homeDir "pending-account.json"), $pending)
-Write-Output "Saved Drivebay port $port ($mode). Forward this port on your router."
+if ($mode -eq "tailscale") {
+  Write-Output "Saved Drivebay port $port (tailscale). No router port forward is required."
+} else {
+  Write-Output "Saved Drivebay port $port (regular). Forward this port on your router."
+}

@@ -8,7 +8,7 @@ Password-locked file browser for every drive on this machine. Built to run insid
 https://github.com/lordstryfe/drivebay-pinokio
 ```
 
-Current version: **3.18** — see [Changelog](#changelog) below.
+Current version: **3.19** — see [Changelog](#changelog) below.
 
 ## Install in Pinokio (do this)
 
@@ -31,18 +31,18 @@ Change the port later with **Set port** or the in-app **Settings** page, then St
 
 ## Install without Pinokio
 
-Download **Drivebay-Setup-3.18.exe** from [GitHub Releases](https://github.com/lordstryfe/drivebay-pinokio/releases). You do not need Node.js, git, or Pinokio. The installer includes the server and the runtime that runs it, and it starts a production build.
+Download **Drivebay-Setup-3.19.exe** from [GitHub Releases](https://github.com/lordstryfe/drivebay-pinokio/releases). You do not need Node.js, git, or Pinokio. The installer includes the server and the runtime that runs it, and it starts a production build.
 
-Push a version tag such as `v3.18` to publish that file on the release. Pull requests also upload the installer as a build artifact.
+Push a version tag such as `v3.19` to publish that file on the release. Pull requests also upload the installer as a build artifact.
 
 The setup screens are:
 
 1. **Welcome.** The runtime is included.
 2. **Folder.** Where to put the program. This is a per-user install.
-3. **Mode.** **Tailscale** or **Regular** (no Tailscale).
-4. **Port.** Required. A free port from 1024 to 65535. The suggested port is 42013.
-5. **Router.** You have to open and forward **that port** on your router. The page shows the port you picked. You must check the box to continue. This page is shown in both modes. Allow the same port in Windows Firewall if Windows asks.
-6. **Tailscale** (only if you chose Tailscale). Other devices on your tailnet open `http://<this-pc-tailscale-name>:<port>/` after you sign in to Tailscale on both devices. You can download the official installer from `pkgs.tailscale.com` and launch Tailscale. You still forward the port on your router.
+3. **Mode.** **Tailscale** (over your tailnet, no router change) or **Regular** (this network, which needs a router port forward).
+4. **Port.** Required in both modes. A free port from 1024 to 65535. The suggested port is 42013.
+5. **Router** (Regular only). You have to open and forward **that port** on your router. The page shows the port you picked. You must check the box to continue. Tailscale skips this page. Allow the same port in Windows Firewall if Windows asks.
+6. **Tailscale** (only if you chose Tailscale). Other devices on your tailnet open `http://<this-pc-tailscale-name>:<port>/` after you sign in to Tailscale on both devices. You can download the official installer from `pkgs.tailscale.com` and launch Tailscale. You do not forward the port on your router.
 7. **Password.** The only username and password (at least 8 characters). Drivebay opens in the browser so you can sign in. If that account cannot be saved, the login page lets you set the lock on first run. A reinstall does not replace an existing password.
 8. **Shortcuts.** Start menu entries (Drivebay, Stop Drivebay, and Uninstall) are always created. Optional desktop shortcut. Optional **Start Drivebay when I sign in to Windows**.
 9. **Finish.** Opens Drivebay in the browser.
@@ -67,6 +67,11 @@ Search: type in the search box and press Enter (or Ctrl/Cmd+K). It looks through
 Treat the password like a house key. Do not share the Pinokio link and the password together. The first person to open a fresh install owns the lock — make sure that person is you.
 
 ## Changelog
+
+### 3.19
+- Installer text is plain ASCII, so mode choices no longer show a broken em dash.
+- The password page accepts two matching passwords and rejects a mismatch, a short password, or an empty one.
+- Tailscale mode skips the router port-forward notice. Regular mode still requires it. Both modes still pick a local port.
 
 ### 3.18
 - Windows installer that does not need Pinokio, Node.js, or git.

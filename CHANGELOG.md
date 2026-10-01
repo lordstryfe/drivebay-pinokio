@@ -2,6 +2,11 @@
 
 All user-facing Drivebay versions. Newest first.
 
+## 3.19
+- Installer strings are plain ASCII, so the Tailscale and Regular choices no longer show mojibake.
+- Password confirmation compares the two fields. Matching passwords are saved and used for the web login.
+- Tailscale mode skips the router port-forward page and checkbox. Regular mode still requires that acknowledgement. Both modes still choose a local port.
+
 ## 3.18
 - Standalone Windows installer. No Pinokio, Node.js, or git required.
 - Setup asks for Tailscale or regular mode, a free port, and the account password.
