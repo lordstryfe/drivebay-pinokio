@@ -8,7 +8,7 @@ Password-locked file browser for every drive on this machine. Built to run insid
 https://github.com/lordstryfe/drivebay-pinokio
 ```
 
-Current version: **3.18** — see [Changelog](#changelog) below.
+Current version: **3.19** — see [Changelog](#changelog) below.
 
 ## Install in Pinokio (do this)
 
@@ -31,9 +31,9 @@ Change the port later with **Set port** or the in-app **Settings** page, then St
 
 ## Install without Pinokio
 
-Download **Drivebay-Setup-3.18.exe** from [GitHub Releases](https://github.com/lordstryfe/drivebay-pinokio/releases). You do not need Node.js, git, or Pinokio. The installer includes the server and the runtime that runs it, and it starts a production build.
+Download **Drivebay-Setup-3.19.exe** from [GitHub Releases](https://github.com/lordstryfe/drivebay-pinokio/releases). You do not need Node.js, git, or Pinokio. The installer includes the server and the runtime that runs it, and it starts a production build.
 
-Push a version tag such as `v3.18` to publish that file on the release. Pull requests also upload the installer as a build artifact.
+Push a version tag such as `v3.19` to publish that file on the release. Pull requests also upload the installer as a build artifact.
 
 The setup screens are:
 
@@ -67,6 +67,11 @@ Search: type in the search box and press Enter (or Ctrl/Cmd+K). It looks through
 Treat the password like a house key. Do not share the Pinokio link and the password together. The first person to open a fresh install owns the lock — make sure that person is you.
 
 ## Changelog
+
+### 3.19
+- Installer text is plain ASCII, so mode choices no longer show a broken em dash.
+- The password page accepts two matching passwords and rejects a mismatch, a short password, or an empty one.
+- Tailscale mode skips the router port-forward notice. Regular mode still requires it. Both modes still pick a local port.
 
 ### 3.18
 - Windows installer that does not need Pinokio, Node.js, or git.
