@@ -253,8 +253,9 @@ async function main() {
       log(home, `Drivebay is already running at ${origin}/login`);
       if (config.mode === "tailscale") {
         log(home, `Tailscale: other devices on your tailnet use http://<this-pc-tailscale-name>:${port}/`);
+      } else {
+        log(home, `Forward TCP port ${port} on your router if other devices cannot connect.`);
       }
-      log(home, `Forward TCP port ${port} on your router if other devices cannot connect.`);
       openBrowser(`${origin}/login`);
       return;
     }
@@ -332,12 +333,13 @@ async function main() {
   });
 
   log(home, `Starting Drivebay on port ${port} (${config.mode}).`);
-  log(home, `You must open and forward TCP port ${port} on your router.`);
   if (config.mode === "tailscale") {
     log(
       home,
-      `Tailscale mode: devices on your tailnet reach this PC at http://<this-pc-tailscale-name>:${port}/`,
+      `Tailscale mode: devices on your tailnet reach this PC at http://<this-pc-tailscale-name>:${port}/. No router port forward is required.`,
     );
+  } else {
+    log(home, `You must open and forward TCP port ${port} on your router.`);
   }
 
   const up = await waitForLogin(origin, home);

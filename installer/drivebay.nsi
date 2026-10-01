@@ -43,6 +43,7 @@ Page custom TailscalePageCreate TailscalePageLeave
 Page custom AccountPageCreate AccountPageLeave
 Page custom OptionsPageCreate OptionsPageLeave
 !insertmacro MUI_PAGE_INSTFILES
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW FinishPageShow
 !insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -60,6 +61,7 @@ Var Password
 Var UsernameField
 Var PasswordField
 Var ConfirmField
+Var Confirm
 Var InstallTailscale
 Var LaunchTailscale
 Var HInstallTs
@@ -96,11 +98,11 @@ FunctionEnd
 Function ModePageCreate
   nsDialogs::Create 1018
   Pop $0
-  ${NSD_CreateLabel} 0 0 100% 28u "How should other devices reach this PC? You still pick a port either way, and you still have to forward that port on your router."
+  ${NSD_CreateLabel} 0 0 100% 36u "How should other devices reach this PC? Both modes use a local port. Tailscale reaches it over your tailnet, with no router change. Regular mode needs that port forwarded on your router."
   Pop $0
-  ${NSD_CreateFirstRadioButton} 0 36u 100% 12u "Tailscale — reach Drivebay over your tailnet"
+  ${NSD_CreateFirstRadioButton} 0 42u 100% 12u "Tailscale - reach Drivebay over your tailnet"
   Pop $ModeTailscale
-  ${NSD_CreateAdditionalRadioButton} 0 52u 100% 14u "Regular — this network, without Tailscale"
+  ${NSD_CreateAdditionalRadioButton} 0 58u 100% 14u "Regular - this network, without Tailscale"
   Pop $ModeRegular
   ${If} $Mode == "tailscale"
     ${NSD_SetState} $ModeTailscale ${BST_CHECKED}
@@ -122,11 +124,16 @@ FunctionEnd
 Function PortPageCreate
   nsDialogs::Create 1018
   Pop $0
-  ${NSD_CreateLabel} 0 0 100% 32u "Choose the port Drivebay listens on. This step is required. The port must be free on this PC (1024–65535). The next page tells you to forward this same port on your router."
+  ${If} $Mode == "tailscale"
+    ${NSD_CreateLabel} 0 0 100% 36u "Choose the port Drivebay listens on. This step is required. The port must be free on this PC (1024-65535). Devices on your tailnet use this port. You do not open it on your router."
+    Pop $0
+  ${Else}
+    ${NSD_CreateLabel} 0 0 100% 36u "Choose the port Drivebay listens on. This step is required. The port must be free on this PC (1024-65535). The next page tells you to forward this same port on your router."
+    Pop $0
+  ${EndIf}
+  ${NSD_CreateLabel} 0 42u 100% 10u "Port"
   Pop $0
-  ${NSD_CreateLabel} 0 36u 100% 10u "Port"
-  Pop $0
-  ${NSD_CreateText} 0 48u 80u 12u "$Port"
+  ${NSD_CreateText} 0 54u 80u 12u "$Port"
   Pop $PortField
   nsDialogs::Show
 FunctionEnd
@@ -174,13 +181,17 @@ Function PortPageLeave
 FunctionEnd
 
 Function RouterPageCreate
+  ; Tailscale reaches the local port over the tailnet. No router forward.
+  ${If} $Mode == "tailscale"
+    Abort
+  ${EndIf}
   nsDialogs::Create 1018
   Pop $0
   ${NSD_CreateLabel} 0 0 100% 12u "Open this port on your router"
   Pop $0
   ${NSD_CreateLabel} 0 16u 100% 18u "TCP port $Port"
   Pop $0
-  ${NSD_CreateLabel} 0 38u 100% 48u "You have to open and forward TCP port $Port on your router.$\r$\n$\r$\nPhones and other computers cannot reach Drivebay until your router forwards port $Port to this PC. This is required for Tailscale mode and for regular mode.$\r$\n$\r$\nIf Windows Firewall asks, allow Drivebay or TCP port $Port as well."
+  ${NSD_CreateLabel} 0 38u 100% 48u "You have to open and forward TCP port $Port on your router.$\r$\n$\r$\nPhones and other computers cannot reach Drivebay until your router forwards port $Port to this PC.$\r$\n$\r$\nIf Windows Firewall asks, allow Drivebay or TCP port $Port as well."
   Pop $0
   ${NSD_CreateCheckbox} 0 96u 100% 18u "I understand I must open and forward port $Port on my router."
   Pop $HAck
@@ -188,6 +199,9 @@ Function RouterPageCreate
 FunctionEnd
 
 Function RouterPageLeave
+  ${If} $Mode == "tailscale"
+    Return
+  ${EndIf}
   ${NSD_GetState} $HAck $0
   ${If} $0 != ${BST_CHECKED}
     MessageBox MB_OK|MB_ICONEXCLAMATION "Check the box to confirm you will open and forward port $Port on your router."
@@ -201,7 +215,7 @@ Function TailscalePageCreate
   ${EndIf}
   nsDialogs::Create 1018
   Pop $0
-  ${NSD_CreateLabel} 0 0 100% 56u "Tailscale mode. Devices on your tailnet reach this PC at http://<this-PC-tailscale-name>:$Port/ after you sign in to Tailscale on both devices.$\r$\n$\r$\nYou still have to open and forward TCP port $Port on your router.$\r$\n$\r$\nDrivebay can download the official Tailscale installer from pkgs.tailscale.com and run it. Tailscale's own window will open."
+  ${NSD_CreateLabel} 0 0 100% 56u "Tailscale mode. Devices on your tailnet reach this PC at http://<this-PC-tailscale-name>:$Port/ after you sign in to Tailscale on both devices. You do not open that port on your router.$\r$\n$\r$\nDrivebay can download the official Tailscale installer from pkgs.tailscale.com and run it. Tailscale's own window will open."
   Pop $0
   ${NSD_CreateCheckbox} 0 62u 100% 12u "Download and install Tailscale (official installer)"
   Pop $HInstallTs
@@ -232,40 +246,41 @@ Function TailscalePageLeave
 FunctionEnd
 
 Function UsernameOk
-  StrLen $1 $Username
-  ${If} $1 < 1
-  ${OrIf} $1 > 64
+  ; Result in $0. Scratch is $R1-$R4 only, so $Password and $Confirm stay intact.
+  StrLen $R1 $Username
+  ${If} $R1 < 1
+  ${OrIf} $R1 > 64
     StrCpy $0 0
     Return
   ${EndIf}
-  StrCpy $2 0
-  ${While} $2 < $1
-    StrCpy $3 $Username 1 $2
-    StrCpy $4 0
-    ${If} $3 >= "0"
-    ${AndIf} $3 <= "9"
-      StrCpy $4 1
+  StrCpy $R2 0
+  ${While} $R2 < $R1
+    StrCpy $R3 $Username 1 $R2
+    StrCpy $R4 0
+    ${If} $R3 >= "0"
+    ${AndIf} $R3 <= "9"
+      StrCpy $R4 1
     ${EndIf}
-    ${If} $3 >= "A"
-    ${AndIf} $3 <= "Z"
-      StrCpy $4 1
+    ${If} $R3 >= "A"
+    ${AndIf} $R3 <= "Z"
+      StrCpy $R4 1
     ${EndIf}
-    ${If} $3 >= "a"
-    ${AndIf} $3 <= "z"
-      StrCpy $4 1
+    ${If} $R3 >= "a"
+    ${AndIf} $R3 <= "z"
+      StrCpy $R4 1
     ${EndIf}
-    ${If} $2 > 0
-      ${If} $3 == "."
-      ${OrIf} $3 == "-"
-      ${OrIf} $3 == "_"
-        StrCpy $4 1
+    ${If} $R2 > 0
+      ${If} $R3 == "."
+      ${OrIf} $R3 == "-"
+      ${OrIf} $R3 == "_"
+        StrCpy $R4 1
       ${EndIf}
     ${EndIf}
-    ${If} $4 != 1
+    ${If} $R4 != 1
       StrCpy $0 0
       Return
     ${EndIf}
-    IntOp $2 $2 + 1
+    IntOp $R2 $R2 + 1
   ${EndWhile}
   StrCpy $0 1
 FunctionEnd
@@ -293,18 +308,18 @@ FunctionEnd
 Function AccountPageLeave
   ${NSD_GetText} $UsernameField $Username
   ${NSD_GetText} $PasswordField $Password
-  ${NSD_GetText} $ConfirmField $1
+  ${NSD_GetText} $ConfirmField $Confirm
   Call UsernameOk
   ${If} $0 != 1
     MessageBox MB_OK|MB_ICONEXCLAMATION "Enter a username using letters, numbers, dots, dashes, or underscores."
     Abort
   ${EndIf}
-  StrLen $2 $Password
-  ${If} $2 < 8
+  StrLen $R1 $Password
+  ${If} $R1 < 8
     MessageBox MB_OK|MB_ICONEXCLAMATION "Use a password of at least 8 characters."
     Abort
   ${EndIf}
-  ${If} $Password != $1
+  ${If} $Password != $Confirm
     MessageBox MB_OK|MB_ICONEXCLAMATION "Passwords do not match."
     Abort
   ${EndIf}
@@ -347,6 +362,12 @@ Function LaunchDrivebay
   Exec '"$SYSDIR\wscript.exe" //nologo "$INSTDIR\start-drivebay.vbs"'
 FunctionEnd
 
+Function FinishPageShow
+  ${If} $Mode == "tailscale"
+    SendMessage $mui.FinishPage.Text ${WM_SETTEXT} 0 "STR:Open Drivebay and sign in with the username and password you just chose.$\r$\n$\r$\nOther devices on your tailnet open http://<this-PC-tailscale-name>:$Port/ after Tailscale is signed in on both devices. You do not forward that port on your router.$\r$\n$\r$\nStart Drivebay from the Start menu. Uninstall it from the Start menu or from Apps."
+  ${EndIf}
+FunctionEnd
+
 Section "Install"
   SetOutPath "$INSTDIR"
   File /r "staging\*.*"
@@ -368,7 +389,11 @@ Section "Install"
     MessageBox MB_OK|MB_ICONEXCLAMATION "Drivebay is installed, but the password file could not be saved. The first time you open Drivebay, set the username and password in the browser."
   ${EndIf}
 
-  DetailPrint "You must open and forward TCP port $Port on your router."
+  ${If} $Mode == "tailscale"
+    DetailPrint "Tailscale mode: other devices use the tailnet address of this PC on port $Port. No router port forward is required."
+  ${Else}
+    DetailPrint "You must open and forward TCP port $Port on your router."
+  ${EndIf}
   nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\windows\firewall.ps1" -Action add'
   Pop $0
 
@@ -378,7 +403,7 @@ Section "Install"
     nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\windows\install-tailscale.ps1"'
     Pop $0
     ${If} $0 != 0
-      MessageBox MB_OK|MB_ICONEXCLAMATION "Tailscale was not installed. Drivebay is still installed. Download Tailscale from https://tailscale.com/download/windows and sign in so this PC joins your tailnet. Other devices use http://<this-PC-tailscale-name>:$Port/ — and you still must forward TCP port $Port on your router."
+      MessageBox MB_OK|MB_ICONEXCLAMATION "Tailscale was not installed. Drivebay is still installed. Download Tailscale from https://tailscale.com/download/windows and sign in so this PC joins your tailnet. Other devices use http://<this-PC-tailscale-name>:$Port/."
     ${EndIf}
   ${EndIf}
   ${If} $Mode == "tailscale"

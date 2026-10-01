@@ -39,10 +39,10 @@ The setup screens are:
 
 1. **Welcome.** The runtime is included.
 2. **Folder.** Where to put the program. This is a per-user install.
-3. **Mode.** **Tailscale** or **Regular** (no Tailscale).
-4. **Port.** Required. A free port from 1024 to 65535. The suggested port is 42013.
-5. **Router.** You have to open and forward **that port** on your router. The page shows the port you picked. You must check the box to continue. This page is shown in both modes. Allow the same port in Windows Firewall if Windows asks.
-6. **Tailscale** (only if you chose Tailscale). Other devices on your tailnet open `http://<this-pc-tailscale-name>:<port>/` after you sign in to Tailscale on both devices. You can download the official installer from `pkgs.tailscale.com` and launch Tailscale. You still forward the port on your router.
+3. **Mode.** **Tailscale** (over your tailnet, no router change) or **Regular** (this network, which needs a router port forward).
+4. **Port.** Required in both modes. A free port from 1024 to 65535. The suggested port is 42013.
+5. **Router** (Regular only). You have to open and forward **that port** on your router. The page shows the port you picked. You must check the box to continue. Tailscale skips this page. Allow the same port in Windows Firewall if Windows asks.
+6. **Tailscale** (only if you chose Tailscale). Other devices on your tailnet open `http://<this-pc-tailscale-name>:<port>/` after you sign in to Tailscale on both devices. You can download the official installer from `pkgs.tailscale.com` and launch Tailscale. You do not forward the port on your router.
 7. **Password.** The only username and password (at least 8 characters). Drivebay opens in the browser so you can sign in. If that account cannot be saved, the login page lets you set the lock on first run. A reinstall does not replace an existing password.
 8. **Shortcuts.** Start menu entries (Drivebay, Stop Drivebay, and Uninstall) are always created. Optional desktop shortcut. Optional **Start Drivebay when I sign in to Windows**.
 9. **Finish.** Opens Drivebay in the browser.
