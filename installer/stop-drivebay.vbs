@@ -1,7 +1,13 @@
-' Stops the Drivebay server started by start-drivebay.vbs.
+' Stops the Drivebay server. The tray icon stays up when it is already running.
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set sh = CreateObject("WScript.Shell")
 installDir = fso.GetParentFolderName(WScript.ScriptFullName)
+tray = installDir & "\DrivebayTray.exe"
+If fso.FileExists(tray) Then
+  sh.CurrentDirectory = installDir
+  sh.Run """" & tray & """ --stop", 0, True
+  WScript.Quit 0
+End If
 node = installDir & "\runtime\node.exe"
 launcher = installDir & "\launcher.mjs"
 If Not fso.FileExists(node) Then
@@ -10,4 +16,3 @@ If Not fso.FileExists(node) Then
 End If
 sh.CurrentDirectory = installDir
 sh.Run """" & node & """ """ & launcher & """ --stop", 0, True
-MsgBox "Drivebay has stopped.", 64, "Drivebay"

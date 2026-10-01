@@ -243,7 +243,13 @@ async function main() {
     return;
   }
 
-  const config = readConfig(home);
+  let config;
+  try {
+    config = readConfig(home);
+  } catch (err) {
+    log(home, `Setup config was not found (${err.message}). Using port 42013 so the login page can still open.`);
+    config = { port: 42013, mode: "regular", version: "" };
+  }
   const port = resolveListenPort(home, config.port);
   const origin = `http://127.0.0.1:${port}`;
   const existing = readPid(home);
