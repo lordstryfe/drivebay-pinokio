@@ -7,10 +7,10 @@
 !include "WinMessages.nsh"
 
 !ifndef VERSION
-  !define VERSION "3.19"
+  !define VERSION "3.20"
 !endif
 !ifndef VERSION4
-  !define VERSION4 "3.19.0.0"
+  !define VERSION4 "3.20.0.0"
 !endif
 
 Name "Drivebay ${VERSION}"
@@ -29,7 +29,7 @@ ShowInstDetails show
 !define MUI_WELCOMEPAGE_TITLE "Install Drivebay"
 !define MUI_WELCOMEPAGE_TEXT "Drivebay is a password-locked file browser for every drive on this PC.$\r$\n$\r$\nThis setup includes the program and the runtime it needs. You do not need Node.js, git, or Pinokio.$\r$\n$\r$\nYou will choose Tailscale or a regular connection, pick a free port, and set the password."
 !define MUI_FINISHPAGE_TITLE "Drivebay is installed"
-!define MUI_FINISHPAGE_TEXT "Open Drivebay and sign in with the username and password you just chose.$\r$\n$\r$\nOther devices can connect only after you open and forward the port you picked on your router.$\r$\n$\r$\nStart Drivebay from the Start menu. Uninstall it from the Start menu or from Apps."
+!define MUI_FINISHPAGE_TEXT "Open Drivebay and sign in with the username and password you just chose.$\r$\n$\r$\nOther devices can connect only after you open and forward the port you picked on your router.$\r$\n$\r$\nStart Drivebay from the Start menu. An icon stays in the notification area while it is running. Uninstall it from the Start menu or from Apps."
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_TEXT "Open Drivebay in my browser"
 !define MUI_FINISHPAGE_RUN_FUNCTION LaunchDrivebay
@@ -73,10 +73,13 @@ Var HDesktop
 Var HStartup
 Var DeleteData
 Var UnDeleteCheckbox
+Var SetupError
 
+; FileWrite writes the system ANSI code page. The setup script reads UTF-16LE,
+; so an 8-character password becomes 4 characters and is rejected.
 !macro WriteUtf16 FILE VALUE
   FileOpen $R9 "${FILE}" w
-  FileWrite $R9 "${VALUE}"
+  FileWriteUTF16LE /BOM $R9 "${VALUE}"
   FileClose $R9
 !macroend
 
@@ -328,11 +331,11 @@ FunctionEnd
 Function OptionsPageCreate
   nsDialogs::Create 1018
   Pop $0
-  ${NSD_CreateLabel} 0 0 100% 20u "Shortcuts. Drivebay is also added to the Start menu, with an uninstaller."
+  ${NSD_CreateLabel} 0 0 100% 32u "Shortcuts. Drivebay is added to the Start menu, with an uninstaller. Starting it puts an icon in the notification area. There is no console window."
   Pop $0
-  ${NSD_CreateCheckbox} 0 28u 100% 12u "Desktop shortcut"
+  ${NSD_CreateCheckbox} 0 40u 100% 12u "Desktop shortcut"
   Pop $HDesktop
-  ${NSD_CreateCheckbox} 0 44u 100% 16u "Start Drivebay when I sign in to Windows"
+  ${NSD_CreateCheckbox} 0 56u 100% 16u "Start Drivebay when I sign in to Windows"
   Pop $HStartup
   ${If} $DesktopShortcut == "1"
     ${NSD_SetState} $HDesktop ${BST_CHECKED}
@@ -359,12 +362,41 @@ Function OptionsPageLeave
 FunctionEnd
 
 Function LaunchDrivebay
-  Exec '"$SYSDIR\wscript.exe" //nologo "$INSTDIR\start-drivebay.vbs"'
+  Exec '"$INSTDIR\DrivebayTray.exe"'
+FunctionEnd
+
+; $1 in and out, on the stack. One line, no quotes, capped for the message box.
+Function OneLine
+  Pop $1
+  StrCpy $R2 $1
+  StrCpy $1 ""
+  ${Do}
+    StrCpy $R3 $R2 1
+    ${If} $R3 == ""
+      ${ExitDo}
+    ${EndIf}
+    ${If} $R3 == '"'
+    ${OrIf} $R3 == "$\r"
+    ${OrIf} $R3 == "$\n"
+      ${If} $R3 == '"'
+        StrCpy $R3 "'"
+      ${Else}
+        StrCpy $R3 " "
+      ${EndIf}
+    ${EndIf}
+    StrCpy $1 "$1$R3"
+    StrCpy $R2 $R2 "" 1
+    StrLen $R4 $1
+    ${If} $R4 > 399
+      ${ExitDo}
+    ${EndIf}
+  ${Loop}
+  Push $1
 FunctionEnd
 
 Function FinishPageShow
   ${If} $Mode == "tailscale"
-    SendMessage $mui.FinishPage.Text ${WM_SETTEXT} 0 "STR:Open Drivebay and sign in with the username and password you just chose.$\r$\n$\r$\nOther devices on your tailnet open http://<this-PC-tailscale-name>:$Port/ after Tailscale is signed in on both devices. You do not forward that port on your router.$\r$\n$\r$\nStart Drivebay from the Start menu. Uninstall it from the Start menu or from Apps."
+    SendMessage $mui.FinishPage.Text ${WM_SETTEXT} 0 "STR:Open Drivebay and sign in with the username and password you just chose.$\r$\n$\r$\nOther devices on your tailnet open http://<this-PC-tailscale-name>:$Port/ after Tailscale is signed in on both devices. You do not forward that port on your router.$\r$\n$\r$\nStart Drivebay from the Start menu. An icon stays in the notification area while it is running. Uninstall it from the Start menu or from Apps."
   ${EndIf}
 FunctionEnd
 
@@ -375,18 +407,37 @@ Section "Install"
 
   !insertmacro WriteUtf16 "$TEMP\drivebay-pending-user.txt" "$Username"
   !insertmacro WriteUtf16 "$TEMP\drivebay-pending-password.txt" "$Password"
-  System::Call 'Kernel32::SetEnvironmentVariable(t "DRIVEBAY_HOME", t "$LOCALAPPDATA\Drivebay")'
-  System::Call 'Kernel32::SetEnvironmentVariable(t "DRIVEBAY_PORT", t "$Port")'
-  System::Call 'Kernel32::SetEnvironmentVariable(t "DRIVEBAY_MODE", t "$Mode")'
-  System::Call 'Kernel32::SetEnvironmentVariable(t "DRIVEBAY_VERSION", t "${VERSION}")'
-  System::Call 'Kernel32::SetEnvironmentVariable(t "DRIVEBAY_SETUP_USER_FILE", t "$TEMP\drivebay-pending-user.txt")'
-  System::Call 'Kernel32::SetEnvironmentVariable(t "DRIVEBAY_SETUP_PASSWORD_FILE", t "$TEMP\drivebay-pending-password.txt")'
-  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\windows\write-setup.ps1"'
+  FileOpen $R9 "$TEMP\drivebay-setup.txt" w
+  FileWriteUTF16LE /BOM $R9 "$LOCALAPPDATA\Drivebay$\r$\n$Port$\r$\n$Mode$\r$\n${VERSION}$\r$\n$TEMP\drivebay-pending-user.txt$\r$\n$TEMP\drivebay-pending-password.txt$\r$\n"
+  FileClose $R9
+  DetailPrint "Saving the Drivebay account to $LOCALAPPDATA\Drivebay"
+  nsExec::ExecToStack 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\windows\write-setup.ps1" -ParamsFile "$TEMP\drivebay-setup.txt"'
   Pop $0
+  Pop $1
+  StrCpy $SetupError ""
+  IfFileExists "$TEMP\drivebay-setup-result.txt" 0 setup_no_result
+    FileOpen $R9 "$TEMP\drivebay-setup-result.txt" r
+    FileReadUTF16LE $R9 $SetupError
+    FileClose $R9
+  setup_no_result:
+  Delete "$TEMP\drivebay-setup-result.txt"
+  Delete "$TEMP\drivebay-setup.txt"
   Delete "$TEMP\drivebay-pending-user.txt"
   Delete "$TEMP\drivebay-pending-password.txt"
+  ${If} $SetupError == ""
+    StrCpy $SetupError $1
+  ${EndIf}
+  Push $SetupError
+  Call OneLine
+  Pop $SetupError
+  DetailPrint "Account setup exit $0"
+  DetailPrint "$SetupError"
   ${If} $0 != 0
-    MessageBox MB_OK|MB_ICONEXCLAMATION "Drivebay is installed, but the password file could not be saved. The first time you open Drivebay, set the username and password in the browser."
+  ${OrIfNot} ${FileExists} "$LOCALAPPDATA\Drivebay\pending-account.json"
+    ${If} $SetupError == ""
+      StrCpy $SetupError "No error text was returned (exit $0)."
+    ${EndIf}
+    MessageBox MB_OK|MB_ICONEXCLAMATION "Drivebay is installed, but the password file could not be saved.$\r$\n$\r$\n$SetupError$\r$\n$\r$\nSet the username and password in the browser the first time you open Drivebay. The same text is in the install log."
   ${EndIf}
 
   ${If} $Mode == "tailscale"
@@ -413,14 +464,14 @@ Section "Install"
   ${EndIf}
 
   CreateDirectory "$SMPROGRAMS\Drivebay"
-  CreateShortCut "$SMPROGRAMS\Drivebay\Drivebay.lnk" "$SYSDIR\wscript.exe" '//nologo "$INSTDIR\start-drivebay.vbs"' "$INSTDIR\assets\drivebay.ico"
-  CreateShortCut "$SMPROGRAMS\Drivebay\Stop Drivebay.lnk" "$SYSDIR\wscript.exe" '//nologo "$INSTDIR\stop-drivebay.vbs"' "$INSTDIR\assets\drivebay.ico"
+  CreateShortCut "$SMPROGRAMS\Drivebay\Drivebay.lnk" "$INSTDIR\DrivebayTray.exe" "" "$INSTDIR\assets\drivebay.ico"
+  CreateShortCut "$SMPROGRAMS\Drivebay\Stop Drivebay.lnk" "$INSTDIR\DrivebayTray.exe" "--stop" "$INSTDIR\assets\drivebay.ico"
   CreateShortCut "$SMPROGRAMS\Drivebay\Uninstall Drivebay.lnk" "$INSTDIR\uninstall.exe"
   ${If} $DesktopShortcut == "1"
-    CreateShortCut "$DESKTOP\Drivebay.lnk" "$SYSDIR\wscript.exe" '//nologo "$INSTDIR\start-drivebay.vbs"' "$INSTDIR\assets\drivebay.ico"
+    CreateShortCut "$DESKTOP\Drivebay.lnk" "$INSTDIR\DrivebayTray.exe" "" "$INSTDIR\assets\drivebay.ico"
   ${EndIf}
   ${If} $StartWithWindows == "1"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Drivebay" '"$SYSDIR\wscript.exe" //nologo "$INSTDIR\start-drivebay.vbs"'
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Drivebay" '"$INSTDIR\DrivebayTray.exe" --background'
   ${Else}
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Drivebay"
   ${EndIf}
@@ -450,8 +501,14 @@ Function un.DataPageLeave
 FunctionEnd
 
 Section "Uninstall"
+  nsExec::ExecToLog '"$INSTDIR\DrivebayTray.exe" --quit'
+  Pop $0
+  DetailPrint "Tray quit exit $0"
   nsExec::ExecToLog '"$INSTDIR\runtime\node.exe" "$INSTDIR\launcher.mjs" --stop'
   Pop $0
+  nsExec::ExecToLog 'taskkill.exe /IM DrivebayTray.exe /F'
+  Pop $0
+  Sleep 500
   nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\windows\firewall.ps1" -Action remove'
   Pop $0
   Sleep 400

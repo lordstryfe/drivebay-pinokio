@@ -2,6 +2,11 @@
 
 All user-facing Drivebay versions. Newest first.
 
+## 3.20
+- Windows setup writes the username and password as UTF-16. Version 3.19 wrote them as ANSI, so an 8-character password looked too short and was not saved. A failed save now shows the reason.
+- The standalone install adds a notification-area icon with Open, Copy address, Start, Stop, Restart, logs, Start with Windows, and Quit. The Start menu and sign-in startup open that icon instead of a console window. Uninstall stops it.
+- Pinokio install and start behavior is unchanged.
+
 ## 3.19
 - Installer strings are plain ASCII, so the Tailscale and Regular choices no longer show mojibake.
 - Password confirmation compares the two fields. Matching passwords are saved and used for the web login.

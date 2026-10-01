@@ -28,7 +28,7 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Port and account helper tests
-        run: node --test installer/port.test.mjs installer/account-leave.test.mjs
+        run: node --test installer/port.test.mjs installer/account-leave.test.mjs installer/setup-save.test.mjs
 
       - name: Build production server
         working-directory: app
@@ -41,6 +41,14 @@ jobs:
 
       - name: Smoke test login page
         run: node installer/smoke-test.mjs
+
+      - name: Build tray app
+        shell: pwsh
+        run: |
+          $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          if (-not (Test-Path $csc)) { throw "csc.exe not found at $csc" }
+          & $csc /nologo /target:winexe /optimize+ /platform:anycpu /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /win32icon:installer\assets\drivebay.ico /out:installer\DrivebayTray.exe installer\tray\DrivebayTray.cs
+          if ($LASTEXITCODE -ne 0) { throw "csc failed ($LASTEXITCODE)" }
 
       - name: Stage installer payload
         run: node installer/stage.mjs

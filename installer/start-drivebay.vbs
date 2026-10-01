@@ -1,7 +1,13 @@
-' Starts the bundled Drivebay server with no console window.
+' Starts Drivebay. The tray app owns the server and has no console window.
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set sh = CreateObject("WScript.Shell")
 installDir = fso.GetParentFolderName(WScript.ScriptFullName)
+tray = installDir & "\DrivebayTray.exe"
+If fso.FileExists(tray) Then
+  sh.CurrentDirectory = installDir
+  sh.Run """" & tray & """", 0, False
+  WScript.Quit 0
+End If
 node = installDir & "\runtime\node.exe"
 launcher = installDir & "\launcher.mjs"
 If Not fso.FileExists(node) Then

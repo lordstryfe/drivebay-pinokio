@@ -8,7 +8,7 @@ Password-locked file browser for every drive on this machine. Built to run insid
 https://github.com/lordstryfe/drivebay-pinokio
 ```
 
-Current version: **3.19** — see [Changelog](#changelog) below.
+Current version: **3.20** — see [Changelog](#changelog) below.
 
 ## Install in Pinokio (do this)
 
@@ -31,9 +31,9 @@ Change the port later with **Set port** or the in-app **Settings** page, then St
 
 ## Install without Pinokio
 
-Download **Drivebay-Setup-3.19.exe** from [GitHub Releases](https://github.com/lordstryfe/drivebay-pinokio/releases). You do not need Node.js, git, or Pinokio. The installer includes the server and the runtime that runs it, and it starts a production build.
+Download **Drivebay-Setup-3.20.exe** from [GitHub Releases](https://github.com/lordstryfe/drivebay-pinokio/releases). You do not need Node.js, git, or Pinokio. The installer includes the server and the runtime that runs it, and it starts a production build.
 
-Push a version tag such as `v3.19` to publish that file on the release. Pull requests also upload the installer as a build artifact.
+Push a version tag such as `v3.20` to publish that file on the release. Pull requests also upload the installer as a build artifact.
 
 The setup screens are:
 
@@ -43,11 +43,11 @@ The setup screens are:
 4. **Port.** Required in both modes. A free port from 1024 to 65535. The suggested port is 42013.
 5. **Router** (Regular only). You have to open and forward **that port** on your router. The page shows the port you picked. You must check the box to continue. Tailscale skips this page. Allow the same port in Windows Firewall if Windows asks.
 6. **Tailscale** (only if you chose Tailscale). Other devices on your tailnet open `http://<this-pc-tailscale-name>:<port>/` after you sign in to Tailscale on both devices. You can download the official installer from `pkgs.tailscale.com` and launch Tailscale. You do not forward the port on your router.
-7. **Password.** The only username and password (at least 8 characters). Drivebay opens in the browser so you can sign in. If that account cannot be saved, the login page lets you set the lock on first run. A reinstall does not replace an existing password.
-8. **Shortcuts.** Start menu entries (Drivebay, Stop Drivebay, and Uninstall) are always created. Optional desktop shortcut. Optional **Start Drivebay when I sign in to Windows**.
-9. **Finish.** Opens Drivebay in the browser.
+7. **Password.** The only username and password (at least 8 characters). Drivebay opens in the browser so you can sign in. If that account cannot be saved, setup shows the reason and writes the same text to the install log. The login page then lets you set the lock on first run. A reinstall does not replace an existing password.
+8. **Shortcuts.** Start menu entries (Drivebay, Stop Drivebay, and Uninstall) are always created. They open a notification-area icon, not a console window. Optional desktop shortcut. Optional **Start Drivebay when I sign in to Windows**, which starts that same icon in the background.
+9. **Finish.** Opens Drivebay in the browser. The icon stays while the server is running. Double-click it, or choose **Open Drivebay**, to open the page. The right-click menu can also copy the Tailscale or LAN address, start, stop, or restart the server, open the logs folder, turn **Start with Windows** on or off, or quit. A short notice appears when the server comes up. If the server stops on its own, the icon changes so you can see it.
 
-The password lock is unchanged: drives stay behind that login. Uninstall removes the program, shortcuts, and the startup entry, and asks before deleting the saved password.
+The password lock is unchanged: drives stay behind that login. Uninstall stops the tray icon and the server, removes the program, shortcuts, and the startup entry, and asks before deleting the saved password.
 
 Tailscale and public addresses use the same plain-HTTP sign-in rules Pinokio already uses, so the login form works from a tailnet address. That does not turn the lock off.
 
@@ -67,6 +67,10 @@ Search: type in the search box and press Enter (or Ctrl/Cmd+K). It looks through
 Treat the password like a house key. Do not share the Pinokio link and the password together. The first person to open a fresh install owns the lock — make sure that person is you.
 
 ## Changelog
+
+### 3.20
+- The installer writes the password as UTF-16. An 8-character password is saved and used for login. If saving still fails, setup shows the reason.
+- Standalone setup adds a notification-area icon. The Start menu and Start with Windows open that icon instead of a console window. Quit and uninstall stop it.
 
 ### 3.19
 - Installer text is plain ASCII, so mode choices no longer show a broken em dash.

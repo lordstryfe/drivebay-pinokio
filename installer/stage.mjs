@@ -60,6 +60,12 @@ fs.cpSync(output, path.join(staging, "app"), { recursive: true });
 for (const name of ["launcher.mjs", "lib.mjs", "start-drivebay.vbs", "stop-drivebay.vbs"]) {
   fs.copyFileSync(path.join(here, name), path.join(staging, name));
 }
+const trayExe = path.join(here, "DrivebayTray.exe");
+if (!fs.existsSync(trayExe)) {
+  console.error("Missing installer/DrivebayTray.exe. Build it with csc before staging.");
+  process.exit(1);
+}
+fs.copyFileSync(trayExe, path.join(staging, "DrivebayTray.exe"));
 fs.cpSync(path.join(here, "windows"), path.join(staging, "windows"), { recursive: true });
 fs.cpSync(path.join(here, "assets"), path.join(staging, "assets"), { recursive: true });
 fs.copyFileSync(path.join(root, "VERSION.txt"), path.join(staging, "VERSION.txt"));

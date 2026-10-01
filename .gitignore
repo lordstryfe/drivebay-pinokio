@@ -25,4 +25,6 @@ data
 drivebay.port
 installer/staging/
 installer/dist/
+installer/DrivebayTray.exe
+installer/DrivebayTray.exe.config
 
