@@ -127,6 +127,14 @@ function authPopupPlugin(): Plugin {
 // opens a second dev-server port, which breaks the single-port preview.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
+//
+// `DRIVEBAY_STANDALONE=1` switches the production preset to Nitro's Node server
+// so the Windows installer can ship a production build. Pinokio never sets that
+// variable: Install still runs `npm install`, Start still runs the Vite dev
+// server, and a normal `npm run build` stays on the Vercel preset.
+const standaloneBuild =
+  process.env.DRIVEBAY_STANDALONE === "1" || process.env.DRIVEBAY_STANDALONE === "true";
+
 export default defineConfig(({ command }) => ({
   server: {
     host: "0.0.0.0",
@@ -146,7 +154,7 @@ export default defineConfig(({ command }) => ({
     ...(command === "build"
       ? [
           nitro({
-            preset: "vercel",
+            preset: standaloneBuild ? "node-server" : "vercel",
             // Auto-registers server/middleware/* (the PWA install page +
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.

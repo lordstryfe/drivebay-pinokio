@@ -101,9 +101,15 @@ const LOCAL_DEV_ORIGINS: string[] = [
   "http://127.0.0.1:8080",
   "http://[::1]:8080",
 ];
-// Pinokio start.js sets this. Public IP + random ports must be trusted or
-// email/password signup returns FORBIDDEN "Invalid origin".
+// Pinokio start.js sets DRIVEBAY_PINOKIO. The standalone Windows installer sets
+// DRIVEBAY_STANDALONE. Both serve plain http on a LAN, public, or Tailscale
+// address (not only localhost). Public IP + Tailscale hosts must be trusted or
+// email/password signup returns FORBIDDEN "Invalid origin". `__Host-` cookies
+// are also dropped by the browser on those http origins, so the cookie names
+// below match the Pinokio path. This does not turn auth off.
 const pinokio = env("DRIVEBAY_PINOKIO") === "true";
+const standalone = env("DRIVEBAY_STANDALONE") === "true";
+const trustLanHttp = pinokio || standalone;
 const baseURL = explicitBaseURL ?? {
   allowedHosts: [
     ...previewAllowedHosts,
@@ -131,7 +137,7 @@ const staticTrustedOrigins: string[] = explicitBaseURL
       "http://*",
       "https://*",
     ];
-const trustedOrigins = pinokio
+const trustedOrigins = trustLanHttp
   ? async (request?: Request) => {
       const extra: string[] = [...staticTrustedOrigins];
       const origin = request?.headers.get("origin");
@@ -164,7 +170,7 @@ const database = databaseUrl
   : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
 
 /** Session token cookie name — also read by the live-preview popup completion page. */
-export const SESSION_TOKEN_COOKIE = pinokio
+export const SESSION_TOKEN_COOKIE = trustLanHttp
   ? "drivebay.session_token"
   : "__Host-grok-auth.session_token";
 
@@ -240,13 +246,14 @@ export const auth = betterAuth({
   advanced: {
     useSecureCookies: false,
     defaultCookieAttributes: {
-      // `__Host-` + Secure only work on https / localhost. Pinokio is plain
-      // http://public-ip:port — those cookies are silently dropped.
-      secure: !pinokio,
+      // `__Host-` + Secure only work on https / localhost. Pinokio and the
+      // standalone installer are plain http://host:port — those cookies are
+      // silently dropped, which breaks Tailscale and LAN sign-in.
+      secure: !trustLanHttp,
       sameSite: "lax",
       path: "/",
     },
-    cookies: pinokio
+    cookies: trustLanHttp
       ? {
           session_token: { name: "drivebay.session_token" },
           session_data: { name: "drivebay.session_data" },

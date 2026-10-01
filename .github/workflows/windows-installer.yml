@@ -1,0 +1,90 @@
+name: Windows installer
+
+on:
+  pull_request:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm install --no-audit --no-fund
+
+      - name: Port and account helper tests
+        run: node --test installer/port.test.mjs
+
+      - name: Build production server
+        working-directory: app
+        env:
+          DRIVEBAY_STANDALONE: "1"
+        run: npm run build
+
+      - name: Copy PGLite runtime files
+        run: node installer/copy-pglite-assets.mjs
+
+      - name: Smoke test login page
+        run: node installer/smoke-test.mjs
+
+      - name: Stage installer payload
+        run: node installer/stage.mjs
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          if ($LASTEXITCODE -eq 3010) { exit 0 }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Compile installer
+        shell: pwsh
+        run: |
+          $line = Get-Content -TotalCount 1 VERSION.txt
+          if ($line -notmatch '(\d+\.\d+)') { throw "VERSION.txt has no version" }
+          $version = $Matches[1]
+          $tag = "${{ github.ref_name }}"
+          if ($tag.StartsWith("v") -and $tag -ne "v$version") {
+            throw "Tag $tag does not match v$version from VERSION.txt"
+          }
+          $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path $makensis)) { throw "makensis not found at $makensis" }
+          New-Item -ItemType Directory -Force -Path installer\dist | Out-Null
+          Push-Location installer
+          try {
+            & $makensis "/DVERSION=$version" "/DVERSION4=$version.0.0" "drivebay.nsi"
+            if ($LASTEXITCODE -ne 0) { throw "makensis failed ($LASTEXITCODE)" }
+          } finally {
+            Pop-Location
+          }
+          Get-ChildItem installer\dist
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Drivebay-Setup
+          path: installer/dist/*.exe
+          if-no-files-found: error
+
+      - name: Attach installer to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/dist/*.exe
+          generate_release_notes: true
+          fail_on_unmatched_files: true
