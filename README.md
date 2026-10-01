@@ -8,7 +8,7 @@ Password-locked file browser for every drive on this machine. Built to run insid
 https://github.com/lordstryfe/drivebay-pinokio
 ```
 
-Current version: **3.19** — see [Changelog](#changelog) below.
+Current version: **3.20** — see [Changelog](#changelog) below.
 
 ## Install in Pinokio (do this)
 
@@ -31,9 +31,9 @@ Change the port later with **Set port** or the in-app **Settings** page, then St
 
 ## Install without Pinokio
 
-Download **Drivebay-Setup-3.19.exe** from [GitHub Releases](https://github.com/lordstryfe/drivebay-pinokio/releases). You do not need Node.js, git, or Pinokio. The installer includes the server and the runtime that runs it, and it starts a production build.
+Download **Drivebay-Setup-3.20.exe** from [GitHub Releases](https://github.com/lordstryfe/drivebay-pinokio/releases). You do not need Node.js, git, or Pinokio. The installer includes the server and the runtime that runs it, and it starts a production build.
 
-Push a version tag such as `v3.19` to publish that file on the release. Pull requests also upload the installer as a build artifact.
+Push a version tag such as `v3.20` to publish that file on the release. Pull requests also upload the installer as a build artifact.
 
 The setup screens are:
 
@@ -67,6 +67,10 @@ Search: type in the search box and press Enter (or Ctrl/Cmd+K). It looks through
 Treat the password like a house key. Do not share the Pinokio link and the password together. The first person to open a fresh install owns the lock — make sure that person is you.
 
 ## Changelog
+
+### 3.20
+- The installer writes the password as UTF-16. An 8-character password is saved and used for login. If saving still fails, setup shows the reason.
+- Standalone setup adds a notification-area icon. The Start menu and Start with Windows open that icon instead of a console window. Quit and uninstall stop it.
 
 ### 3.19
 - Installer text is plain ASCII, so mode choices no longer show a broken em dash.
