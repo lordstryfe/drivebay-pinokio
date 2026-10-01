@@ -2,6 +2,14 @@
 
 All user-facing Drivebay versions. Newest first.
 
+## 3.18
+- Standalone Windows installer. No Pinokio, Node.js, or git required.
+- Setup asks for Tailscale or regular mode, a free port, and the account password.
+- Both modes show the chosen port and require you to forward it on your router.
+- Tailscale mode can download the official Tailscale installer and launch Tailscale.
+- Start menu, desktop shortcut, uninstaller, and optional start with Windows.
+- Login from a Tailscale or LAN address uses the same plain-HTTP cookie rules as Pinokio.
+
 ## 3.17
 - Settings **Drive access**: scan all drives on load; toggle any drive off; saved in `data/drive-access.json`.
 - Disabled drives hidden from sidebar and blocked for browse/download/upload/search.

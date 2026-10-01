@@ -1,5 +1,4 @@
-Drivebay for Pinokio - 3.17
+Drivebay for Pinokio - 3.18
 
-Drive access toggles in Settings (scan all drives; turn any off).
-Android APK saves downloads to phone Downloads folder.
+Standalone Windows installer (no Pinokio, Node, or git).
 Full notes: README Changelog on GitHub.

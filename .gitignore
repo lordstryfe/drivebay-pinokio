@@ -23,4 +23,6 @@ app/.nitro
 app/.data
 data
 drivebay.port
+installer/staging/
+installer/dist/
 

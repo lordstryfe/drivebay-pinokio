@@ -8,7 +8,7 @@ Password-locked file browser for every drive on this machine. Built to run insid
 https://github.com/lordstryfe/drivebay-pinokio
 ```
 
-Current version: **3.14** — see [Changelog](#changelog) below.
+Current version: **3.18** — see [Changelog](#changelog) below.
 
 ## Install in Pinokio (do this)
 
@@ -29,6 +29,28 @@ Current version: **3.14** — see [Changelog](#changelog) below.
 
 Change the port later with **Set port** or the in-app **Settings** page, then Start again.
 
+## Install without Pinokio
+
+Download **Drivebay-Setup-3.18.exe** from [GitHub Releases](https://github.com/lordstryfe/drivebay-pinokio/releases). You do not need Node.js, git, or Pinokio. The installer includes the server and the runtime that runs it, and it starts a production build.
+
+Push a version tag such as `v3.18` to publish that file on the release. Pull requests also upload the installer as a build artifact.
+
+The setup screens are:
+
+1. **Welcome.** The runtime is included.
+2. **Folder.** Where to put the program. This is a per-user install.
+3. **Mode.** **Tailscale** or **Regular** (no Tailscale).
+4. **Port.** Required. A free port from 1024 to 65535. The suggested port is 42013.
+5. **Router.** You have to open and forward **that port** on your router. The page shows the port you picked. You must check the box to continue. This page is shown in both modes. Allow the same port in Windows Firewall if Windows asks.
+6. **Tailscale** (only if you chose Tailscale). Other devices on your tailnet open `http://<this-pc-tailscale-name>:<port>/` after you sign in to Tailscale on both devices. You can download the official installer from `pkgs.tailscale.com` and launch Tailscale. You still forward the port on your router.
+7. **Password.** The only username and password (at least 8 characters). Drivebay opens in the browser so you can sign in. If that account cannot be saved, the login page lets you set the lock on first run. A reinstall does not replace an existing password.
+8. **Shortcuts.** Start menu entries (Drivebay, Stop Drivebay, and Uninstall) are always created. Optional desktop shortcut. Optional **Start Drivebay when I sign in to Windows**.
+9. **Finish.** Opens Drivebay in the browser.
+
+The password lock is unchanged: drives stay behind that login. Uninstall removes the program, shortcuts, and the startup entry, and asks before deleting the saved password.
+
+Tailscale and public addresses use the same plain-HTTP sign-in rules Pinokio already uses, so the login form works from a tailnet address. That does not turn the lock off.
+
 Your username and password are stored in a `data` folder next to the app. **Update does not delete them.**
 
 Search: type in the search box and press Enter (or Ctrl/Cmd+K). It looks through the current folder and its subfolders. Hidden folders follow the eye toggle.
@@ -45,6 +67,13 @@ Search: type in the search box and press Enter (or Ctrl/Cmd+K). It looks through
 Treat the password like a house key. Do not share the Pinokio link and the password together. The first person to open a fresh install owns the lock — make sure that person is you.
 
 ## Changelog
+
+### 3.18
+- Windows installer that does not need Pinokio, Node.js, or git.
+- Setup: Tailscale or regular, a free port, router-forward notice for that port, and the account password.
+- Optional official Tailscale install, Start menu, desktop shortcut, uninstaller, and start with Windows.
+
+Versions 3.15–3.17 are in [CHANGELOG.md](CHANGELOG.md).
 
 ### 3.14
 - Search walks **subfolders**.
@@ -88,7 +117,9 @@ Treat the password like a house key. Do not share the Pinokio link and the passw
 ### 3.3 and earlier
 - Pinokio install package, X: and Z: drives, password lock, file browser.
 
-## Without Pinokio
+## From source
+
+Pinokio install, start, and set-port are unchanged. To work on the app itself:
 
 ```sh
 cd app
